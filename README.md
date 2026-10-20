@@ -4,6 +4,8 @@
 - [Signals—Record something you can't ignore](./C02)
 - [10-second composition—One sourd, ten seconds](./C03)
 - [Phase study—Something that repeats but never sounds the same](./C04)
+- [Stochastic rhythmic patterns](./C05)
+- [Never still, always changing](./C06)
 
 ## One-Sound-a Day 
 
