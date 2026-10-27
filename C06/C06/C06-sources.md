@@ -29,4 +29,4 @@ Each loop is one full cycle of its patch, recorded with `[sfrecord~]` from the f
 - `sounds/hihat.wav`: "rd-6 c hihat.wav" by laffik, https://freesound.org/people/laffik/sounds/638084/, CC0
 - Both Class 5 sequencers. Sequencer 1 (32 steps) plays the kick and hat, and Sequencer 2 (24 steps) dices my C05 recording; they line up every 96 steps. Two slow envelopes cross over the 48 s cycle (384 steps × 125 ms): the live kit fades back while the diced recording comes forward.
 
-CC0 1.0 (public domain dedication): https://creativecommons.org/publicdomain/zero/1.0/. Full details are in `README.md`.
+CC0 1.0 (public domain dedication): https://creativecommons.org/publicdomain/zero/1.0/.
