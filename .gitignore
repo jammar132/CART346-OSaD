@@ -1,1 +1,7 @@
 .DS_Store
+
+# REAPER
+*.rpp-bak
+*.reapeaks
+Backups/
+Media/

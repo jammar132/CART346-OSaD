@@ -1,0 +1,313 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// SCORE ENGINE — shared by the conductor (timeline, validation) and the phones
+// (playback). A score is a list of timed events per group; compileScore() turns
+// it into "layers": one sound playing in one group, with a gain envelope and a
+// drift curve. Everything is a deterministic function of score time, so every
+// phone can work out its own part, and join at any moment.
+//
+// Two kinds of drift:
+//   ratio   inside a group: phone k drifts from phone 1 of its group
+//   spread  across groups:  group j drifts from group A
+// Phone k of group j (both counted from 0) plays at
+//   rate(t) = 1 + k · d(t) + j · s(t),    d = ratio − 1,  s = spread − 1
+// and its loop position is
+//   pos(t)  = (t − start) + k · ∫ d + j · ∫ s     (from the layer's start to t)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// "2:30" → 150, "1:02.5" → 62.5, 90 → 90
+function parseTime(x) {
+  if (typeof x === 'number') return x;
+  if (typeof x !== 'string') return NaN;
+  const parts = x.trim().split(':').map(Number);
+  if (parts.some(isNaN)) return NaN;
+  return parts.reduce((acc, p) => acc * 60 + p, 0);
+}
+
+function fmtTime(s) {
+  if (!isFinite(s)) return '∞';
+  const sign = s < 0 ? '−' : '';
+  s = Math.abs(s);
+  const m = Math.floor(s / 60), r = Math.floor(s % 60);
+  return `${sign}${m}:${String(r).padStart(2, '0')}`;
+}
+
+// ── Piecewise-linear curves: [{t, v}], sorted by t; two points at the same t
+//    make a step. Before the first point / after the last, the value is held.
+function valueAt(pts, t) {
+  if (!pts.length) return 0;
+  if (t < pts[0].t) return pts[0].v;
+  let i = 0;
+  while (i + 1 < pts.length && pts[i + 1].t <= t) i++;
+  const a = pts[i], b = pts[i + 1];
+  if (!b || b.t === a.t) return a.v;
+  return a.v + (b.v - a.v) * (t - a.t) / (b.t - a.t);
+}
+
+// ∫ from t0 to t1 of the curve (trapezoids over each linear piece)
+function integrate(pts, t0, t1) {
+  if (!(t1 > t0) || !pts.length) return 0;
+  const xs = [t0, t1, ...pts.map(p => p.t).filter(t => t > t0 && t < t1)]
+    .sort((a, b) => a - b);
+  let sum = 0;
+  for (let i = 0; i + 1 < xs.length; i++) {
+    const a = xs[i], b = xs[i + 1];
+    if (b <= a) continue;
+    // Evaluate just inside the interval so steps at a boundary are handled
+    const eps = (b - a) * 1e-9;
+    sum += (b - a) * (valueAt(pts, a + eps) + valueAt(pts, b - eps)) / 2;
+  }
+  return sum;
+}
+
+// Value just *before* t (the left side of a step)
+function valueLeft(pts, t) {
+  if (!pts.length) return 0;
+  if (t <= pts[0].t) return pts[0].v;
+  let i = 0;
+  while (i + 1 < pts.length && pts[i + 1].t < t) i++;
+  const a = pts[i], b = pts.find(p => p.t >= t);
+  if (!b) return a.v;
+  if (b.t === a.t) return b.v;
+  return a.v + (b.v - a.v) * (t - a.t) / (b.t - a.t);
+}
+
+// wa·A(t) + wb·B(t) as one piecewise-linear curve (keeps steps from either)
+function combineCurves(a, wa, b, wb) {
+  const ts = [...new Set([...a.map(p => p.t), ...b.map(p => p.t)])].sort((x, y) => x - y);
+  const out = [];
+  for (const t of ts) {
+    const left  = wa * valueLeft(a, t) + wb * valueLeft(b, t);
+    const right = wa * valueAt(a, t)   + wb * valueAt(b, t);
+    out.push({ t, v: left });
+    if (right !== left) out.push({ t, v: right });
+  }
+  return out.length ? out : [{ t: 0, v: 0 }];
+}
+
+// Replace everything after t with a move from the current value to v over `dur`
+function rampTo(pts, t, v, dur) {
+  const cur = valueAt(pts, t);
+  const kept = pts.filter(p => p.t <= t);
+  kept.push({ t, v: cur });
+  kept.push({ t: t + Math.max(0, dur), v });
+  return kept;
+}
+
+// Same, but along an S-curve (slow start, slow end: no audible corner at
+// either end of a fade). The S-curve runs on the square root of the gain and
+// is squared back, so the quiet tail of a fade-out (and the start of a
+// fade-in) eases in and out of silence instead of dropping off: ears hear
+// loudness in decibels, and on that scale a plain S-curve still ends abruptly.
+// Drawn as short straight pieces, so every phone can schedule it with plain
+// linear ramps.
+const FADE_STEPS = 48;
+function fadeTo(pts, t, v, dur) {
+  const cur = valueAt(pts, t);
+  const kept = pts.filter(p => p.t <= t);
+  kept.push({ t, v: cur });
+  if (!(dur > 0)) { kept.push({ t, v }); return kept; }
+  const a = Math.sqrt(Math.max(0, cur)), b = Math.sqrt(Math.max(0, v));
+  for (let i = 1; i <= FADE_STEPS; i++) {
+    const u = i / FADE_STEPS;
+    const x = a + (b - a) * (1 - Math.cos(Math.PI * u)) / 2;
+    kept.push({ t: t + dur * u, v: x * x });
+  }
+  return kept;
+}
+
+// ── Sounds ────────────────────────────────────────────────────────────────────
+// A sound's id is its file path under SOUND_DIR (scores.js), ".wav" implied:
+// 'demo/door' → ../assets/demo/door.wav, 'P01/03' → ../assets/P01/03.wav
+const soundId = x => (x === undefined || x === null) ? '' : String(x).trim();
+
+function soundURL(id) {
+  id = soundId(id);
+  return SOUND_DIR + (/\.[a-z0-9]+$/i.test(id) ? id : id + '.wav');
+}
+
+// ── Compile ───────────────────────────────────────────────────────────────────
+function compileScore(score) {
+  const errors = [];
+  // groups: a number (3 → A, B, C) or a list of names; default 4
+  const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let groups = ['A', 'B', 'C', 'D'];
+  if (score && typeof score.groups === 'number') {
+    const n = Math.max(1, Math.min(26, Math.floor(score.groups)));
+    if (n !== score.groups) errors.push(`groups: ${score.groups} → ${n}`);
+    groups = LETTERS.slice(0, n).split('');
+  } else if (score && Array.isArray(score.groups) && score.groups.length) {
+    groups = score.groups.map(String);
+  }
+
+  const expandGroups = (g, i) => {
+    if (g === undefined || g === 'all' || g === '*') return groups;
+    const list = Array.isArray(g) ? g.map(String) : String(g).split('');
+    const bad = list.filter(x => !groups.includes(x));
+    if (bad.length) errors.push(`event ${i + 1}: unknown group ${bad.join(', ')}`);
+    return list.filter(x => groups.includes(x));
+  };
+
+  const events = ((score && score.events) || [])
+    .map((e, i) => ({ ...e, i, t: parseTime(e.at) }))
+    .filter(e => {
+      if (!isFinite(e.t)) { errors.push(`event ${e.i + 1}: bad time "${e.at}"`); return false; }
+      return true;
+    })
+    .sort((a, b) => a.t - b.t || a.i - b.i);
+
+  const layers = [];
+  const active = {};                         // group → Map(sound → layer)
+  const groupRatio = {};                     // last ratio set per group
+  groups.forEach(g => { active[g] = new Map(); groupRatio[g] = 1; });
+  let spread = [{ t: 0, v: 0 }];             // spread − 1, over the whole piece
+
+  for (const e of events) {
+    const gs = expandGroups(e.groups, e.i);
+    const fade = Math.max(0, +(e.fade ?? 0));
+
+    // Spread is piece-wide: it sets how far apart the groups drift
+    if (e.spread !== undefined) {
+      spread = rampTo(spread, e.t, +e.spread - 1, Math.max(0, +(e.glide ?? 0)));
+      if (e.play === undefined && e.stop === undefined && e.ratio === undefined && e.level === undefined) continue;
+    }
+
+    if (e.play !== undefined) {
+      const n = soundId(e.play);
+      if (!n) { errors.push(`event ${e.i + 1}: no sound named`); continue; }
+      for (const g of gs) {
+        if (e.ratio !== undefined) groupRatio[g] = +e.ratio;
+        const prev = active[g].get(n);
+        if (prev && prev.loop === false) {
+          // Playing a one-shot again restarts it: the earlier one (if it is
+          // still sounding — the file may well have ended) fades out quickly
+          const f = 0.05;
+          prev.gain = fadeTo(prev.gain, e.t, 0, f);
+          prev.stop = e.t + f;
+          active[g].delete(n);
+        } else if (prev) { errors.push(`event ${e.i + 1}: sound ${n} already playing in ${g}`); continue; }
+        const level = e.level ?? 1;
+        const L = {
+          id: `${g}${n}@${e.t}`, group: g, gi: groups.indexOf(g), sound: n, start: e.t, stop: Infinity,
+          loop: e.loop !== false,   // loops unless the event says loop: false
+          fadeOut: e.loop === false ? Math.max(0, +(e.fadeOut ?? 0)) : 0, // over the file's last seconds
+          gain:  fadeTo([{ t: e.t, v: 0 }], e.t, level, Math.max(fade, 0.02)),
+          drift: [{ t: e.t, v: groupRatio[g] - 1 }],
+        };
+        active[g].set(n, L);
+        layers.push(L);
+      }
+      continue;
+    }
+
+    const targets = g => {
+      const m = active[g];
+      if (e.sound === undefined || e.sound === 'all') return [...m.values()];
+      return m.has(soundId(e.sound)) ? [m.get(soundId(e.sound))] : [];
+    };
+
+    if (e.stop !== undefined) {
+      for (const g of gs) {
+        const ls = e.stop === 'all' ? [...active[g].values()]
+                 : active[g].has(soundId(e.stop)) ? [active[g].get(soundId(e.stop))] : [];
+        for (const L of ls) {
+          const f = Math.max(fade, 0.05);
+          L.gain = fadeTo(L.gain, e.t, 0, f);
+          L.stop = e.t + f;
+          active[g].delete(L.sound);
+        }
+      }
+      continue;
+    }
+
+    if (e.ratio !== undefined) {
+      const glide = Math.max(0, +(e.glide ?? 0));
+      for (const g of gs) {
+        groupRatio[g] = +e.ratio;
+        for (const L of targets(g)) L.drift = rampTo(L.drift, e.t, +e.ratio - 1, glide);
+      }
+    }
+    if (e.level !== undefined) {
+      for (const g of gs) for (const L of targets(g)) L.gain = fadeTo(L.gain, e.t, +e.level, fade);
+    }
+  }
+
+  const lastT = Math.max(0, ...layers.map(L => isFinite(L.stop) ? L.stop : L.start),
+                            ...events.map(e => e.t + (+e.fade || 0) + (+e.glide || 0)));
+  const end = isFinite(parseTime(score && score.end)) ? parseTime(score.end) : lastT;
+
+  const sounds = [...new Set(layers.map(L => L.sound))]; // what phones need to download
+  return { title: (score && score.title) || 'Untitled', groups, layers, sounds, spread, end, errors };
+}
+
+// ── Live override (the conductor's slider) ────────────────────────────────────
+// overrides: [{t, d}] in score seconds; d = ratio − 1, or null = back to score.
+function effectiveDrift(L, overrides) {
+  let pts = L.drift;
+  if (!overrides || !overrides.length) return pts;
+  for (let i = 0; i < overrides.length; i++) {
+    const o = overrides[i];
+    if (o.d === null || o.d === undefined) continue;
+    const a = o.t, b = i + 1 < overrides.length ? overrides[i + 1].t : Infinity;
+    const va = valueAt(pts, a);
+    const vb = isFinite(b) ? valueAt(pts, b) : null;
+    const before = pts.filter(p => p.t < a);
+    const after  = isFinite(b) ? pts.filter(p => p.t > b) : [];
+    pts = [...before, { t: a, v: va }, { t: a, v: o.d },
+           ...(isFinite(b) ? [{ t: b, v: o.d }, { t: b, v: vb }] : []), ...after];
+  }
+  return pts;
+}
+
+// Seconds of the sound played so far by the phone of rank k at score time t
+function layerOffset(L, drift, rank, t, spread) {
+  return (t - L.start) + (rank - 1) * integrate(drift, L.start, t)
+       + (spread ? L.gi * integrate(spread, L.start, t) : 0);
+}
+
+// Position in the buffer: wraps around for a loop, stops at the end otherwise
+function layerPos(L, drift, rank, t, dur, spread) {
+  const p = layerOffset(L, drift, rank, t, spread);
+  return L.loop === false ? Math.min(Math.max(p, 0), dur) : ((p % dur) + dur) % dur;
+}
+
+// Score time at which the phone of rank k reaches the end of a one-shot's file
+// (faster phones get there sooner). Offsets only grow, so bisection finds it.
+function fileEndTime(L, drift, rank, dur, spread) {
+  let lo = L.start, hi = L.start + dur * 2 + 1;
+  while (layerOffset(L, drift, rank, hi, spread) < dur && hi - L.start < 1e6) hi = L.start + (hi - L.start) * 2;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (layerOffset(L, drift, rank, mid, spread) < dur) lo = mid; else hi = mid;
+  }
+  return hi;
+}
+
+// A one-shot's fadeOut: an S-curve from 1 to 0 ending where the file ends
+// (multiplies the layer's own gain), or null
+function tailCurve(L, tFileEnd) {
+  if (!(L.loop === false && L.fadeOut > 0)) return null;
+  const f = Math.min(L.fadeOut, tFileEnd - L.start);
+  return fadeTo([{ t: tFileEnd - f, v: 1 }], tFileEnd - f, 0, f);
+}
+
+// Has a one-shot (loop: false) layer run past the end of its file?
+function layerDone(L, drift, rank, t, dur, spread) {
+  return L.loop === false && layerOffset(L, drift, rank, t, spread) >= dur;
+}
+
+// Playback-rate curve (minus 1) for phone `rank` of this layer's group
+function rateCurve(L, drift, rank, spread) {
+  return combineCurves(drift, rank - 1, spread || [{ t: 0, v: 0 }], L.gi);
+}
+
+// Round-robin group assignment: slot 0 → A/1, 1 → B/1, … G → A/2, …
+function slotToAssign(slot, groups) {
+  return [groups[slot % groups.length], Math.floor(slot / groups.length) + 1];
+}
+
+// Group colours (A, B, C, D, …)
+function groupColor(g, groups) {
+  const i = Math.max(0, groups.indexOf(g));
+  const hues = [95, 20, 200, 285, 335, 45, 170, 245];
+  return `hsl(${hues[i % hues.length]} 70% 50%)`;
+}
