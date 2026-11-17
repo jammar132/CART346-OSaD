@@ -8,7 +8,10 @@
 - [Never still, always changing](./C06)
 - [Make a sound that doesn't exist in the real world](./C07)
 - [Make a score with sounds that want to be multiplied](./C08)
-- [_It's gonna rain_ app](./IGR/ensemble/conductor.html)
+- [Make a score with synthesized](./C09)
+- [Make five sounds for your team’s piece and score one section of it](./C10)
+
+[_It's gonna rain_ app](./IGR/ensemble/conductor.html)
 
 ## One-Sound-a Day 
 
