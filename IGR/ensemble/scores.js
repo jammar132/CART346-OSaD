@@ -140,5 +140,85 @@ const SCORES = [
       { at: '0:00', groups: 'D', play: 'demo/multitrack-test/d', ratio: 1.0},
       { at: '5:00', groups: 'all', stop: 'all', fade: 1 },
     ],
-  },   
+  },
+
+    {
+    title: 'C08 glass weather',
+    credit: 'Jana Ammar',
+    groups: 4,
+    // levels include a phone-speaker balance (bright sounds a little lower, so all five sit together)
+    events: [
+      // A rubbed glass in unison, then its phones beat slowly against each other (~1 Hz)
+      { at: '0:00', groups: 'A',   play: 'jammar132/C08-S05-rubbed-glass', ratio: 1.0, fade: 6, level: 0.65 },
+      { at: '0:10', groups: 'A',   ratio: 1.0015, glide: 20 },
+      // One tap on every phone of B, together… then the taps come apart into a rhythm
+      { at: '0:15', groups: 'B',   play: 'jammar132/C08-S01-glass-tap', ratio: 1.0, fade: 1, level: 0.43 },
+      { at: '0:25', groups: 'B',   ratio: 1.01, glide: 15 },
+      // A few drips in C multiply into rain
+      { at: '0:40', groups: 'C',   play: 'jammar132/C08-S02-drip_FAV', ratio: 1.0, fade: 4, level: 0.47 },
+      { at: '0:45', groups: 'C',   ratio: 1.02, glide: 20 },
+      { at: '0:55', spread: 1.003, glide: 20 },
+      // Wind in D; A turns from glass into voices (a slow chorus, still in tune)
+      { at: '1:05', groups: 'D',   play: 'jammar132/C08-S03-wind-band', ratio: 1.02, fade: 20, level: 0.6 },
+      { at: '1:10', groups: 'A',   stop: 'jammar132/C08-S05-rubbed-glass', fade: 15 },
+      { at: '1:10', groups: 'A',   play: 'jammar132/C08-S04-vowel-cloud', ratio: 1.004, fade: 15, level: 0.68 },
+      // The storm: taps and rain speed up and get louder
+      { at: '1:30', groups: 'B',   ratio: 1.02, glide: 15 },
+      { at: '1:30', groups: 'B',   level: 0.7, fade: 15 },
+      { at: '1:30', groups: 'C',   ratio: 1.04, glide: 15 },
+      { at: '1:30', groups: 'C',   level: 0.79, fade: 15 },
+      { at: '1:45', groups: 'D',   level: 0.9, fade: 10 },
+      // Everything slows back to one speed: the phases freeze where they are
+      { at: '1:55', groups: 'all', ratio: 1.0, glide: 20 },
+      { at: '1:55', spread: 1.0, glide: 20 },
+      { at: '2:05', groups: 'B',   stop: 'jammar132/C08-S01-glass-tap', fade: 12 },
+      { at: '2:05', groups: 'D',   stop: 'jammar132/C08-S03-wind-band', fade: 15 },
+      { at: '2:08', groups: 'A',   stop: 'jammar132/C08-S04-vowel-cloud', fade: 12 },
+      { at: '2:08', groups: 'A',   play: 'jammar132/C08-S05-rubbed-glass', ratio: 1.0, fade: 8, level: 0.65 },
+      { at: '2:12', groups: 'C',   stop: 'jammar132/C08-S02-drip_FAV', fade: 10 },
+      { at: '2:20', groups: 'all', stop: 'all', fade: 10 },
+    ],
+    end: '2:32'
+  },
+
+  {
+    title: 'C09 slow motor',
+    credit: 'Jana Ammar',
+    groups: 4,
+    // ratios stay small (pitched loops: chorus, not out of tune); levels include a phone-speaker balance
+    events: [
+      // The cell in A and B, in unison; B creeps ahead, Piano Phase style (one step every ~minute)
+      { at: '0:00', groups: 'A',   play: 'jammar132/C09-S01-phase-cell', ratio: 1.0, fade: 2, level: 0.49 },
+      { at: '0:10', groups: 'B',   play: 'jammar132/C09-S01-phase-cell', ratio: 1.0, fade: 2, level: 0.49 },
+      { at: '0:15', spread: 1.002, glide: 30 },
+      // The motor enters in C and spreads inside the group
+      { at: '0:30', groups: 'C',   play: 'jammar132/C09-S02-motor_FAV', ratio: 1.0, fade: 6, level: 0.5 },
+      { at: '0:45', groups: 'C',   ratio: 1.003, glide: 20 },
+      // A pad under it all, chorusing
+      { at: '0:55', groups: 'D',   play: 'jammar132/C09-S04-drift-pad', ratio: 1.004, fade: 12, level: 0.45 },
+      // A turns into the squelch line, B into pings
+      { at: '1:10', groups: 'A',   stop: 'jammar132/C09-S01-phase-cell', fade: 10 },
+      { at: '1:10', groups: 'A',   play: 'jammar132/C09-S03-squelch', ratio: 1.0, fade: 6, level: 0.63 },
+      { at: '1:20', groups: 'B',   stop: 'jammar132/C09-S01-phase-cell', fade: 12 },
+      { at: '1:20', groups: 'B',   play: 'jammar132/C09-S05-pings', ratio: 1.004, fade: 8, level: 0.47 },
+      // Climax: everyone drifts a little faster and gets louder, the groups pull apart
+      { at: '1:35', groups: 'all', ratio: 1.004, glide: 20 },
+      { at: '1:35', groups: 'A',   level: 0.97, fade: 20 },
+      { at: '1:35', groups: 'B',   level: 0.73, fade: 20 },
+      { at: '1:35', groups: 'C',   level: 1.0, fade: 20 },
+      { at: '1:35', groups: 'D',   level: 0.98, fade: 20 },
+      { at: '1:50', spread: 1.003, glide: 15 },
+      // Back to one speed and in tune: the phases freeze
+      { at: '2:10', groups: 'all', ratio: 1.0, glide: 15 },
+      { at: '2:10', spread: 1.0, glide: 15 },
+      { at: '2:20', groups: 'C',   stop: 'jammar132/C09-S02-motor_FAV', fade: 8 },
+      { at: '2:20', groups: 'D',   stop: 'jammar132/C09-S04-drift-pad', fade: 15 },
+      { at: '2:25', groups: 'B',   stop: 'jammar132/C09-S05-pings', fade: 10 },
+      // The cell comes back alone in A, where it began
+      { at: '2:25', groups: 'A',   stop: 'jammar132/C09-S03-squelch', fade: 8 },
+      { at: '2:27', groups: 'A',   play: 'jammar132/C09-S01-phase-cell', ratio: 1.0, fade: 4, level: 0.49 },
+      { at: '2:40', groups: 'all', stop: 'all', fade: 8 },
+    ],
+    end: '2:50'
+  },
 ];
