@@ -221,4 +221,42 @@ const SCORES = [
     ],
     end: '2:50'
   },
+  
+  {
+  title: 'C10 the city clocks in',
+  credit: 'Jana Ammar',
+  groups: 4,
+  events: [
+    { at: '0:00', groups: 'all', play: 'jammar132/C10-S05-streetbells', ratio: 1.0, fade: 6, level: 0.5 },
+    { at: '0:06', groups: 'A', play: 'jammar132/C10-S01-bellhit', loop: false, level: 0.85 },
+    { at: '0:12', groups: 'B', play: 'jammar132/C10-S01-bellhit', loop: false, level: 0.85 },
+    { at: '0:18', groups: 'C', play: 'jammar132/C10-S01-bellhit', loop: false, level: 0.85 },
+    { at: '0:24', groups: 'D', play: 'jammar132/C10-S01-bellhit', loop: false, level: 0.85 },
+    { at: '0:24', groups: 'all', play: 'jammar132/C10-S04-departure', loop: false, level: 0.75 },
+    { at: '0:36', groups: 'all', play: 'jammar132/C10-S02-streetbeat_FAV', ratio: 1.0, level: 0.7 },
+    { at: '0:36', groups: 'all', play: 'jammar132/C10-S01-bellhit', loop: false, level: 0.6 },
+    { at: '0:48', groups: 'all', play: 'jammar132/C10-S03-hum', ratio: 1.002, fade: 6, level: 0.15 },
+    { at: '0:48', groups: 'all', stop: 'jammar132/C10-S05-streetbells', fade: 6 },
+    { at: '1:00', groups: 'A', play: 'jammar132/C10-S01-bellhit', loop: false, level: 0.85 },
+    { at: '1:06', groups: 'B', play: 'jammar132/C10-S01-bellhit', loop: false, level: 0.85 },
+    { at: '1:12', groups: 'C', play: 'jammar132/C10-S01-bellhit', loop: false, level: 0.85 },
+    { at: '1:18', groups: 'D', play: 'jammar132/C10-S01-bellhit', loop: false, level: 0.85 },
+    { at: '1:24', groups: 'CD', stop: 'jammar132/C10-S02-streetbeat_FAV', fade: 1 },
+    { at: '1:25', groups: 'CD', play: 'jammar132/C10-S02-streetbeat_FAV', ratio: 1.0, level: 0.7 },
+    { at: '1:30', spread: 1.002, glide: 6 },
+    { at: '1:36', groups: 'all', stop: 'jammar132/C10-S02-streetbeat_FAV', fade: 1 },
+    { at: '1:36', spread: 1.0, glide: 1 },
+    { at: '1:36', groups: 'all', play: 'jammar132/C10-S04-departure', loop: false, level: 0.75 },
+    { at: '1:36', groups: 'all', play: 'jammar132/C10-S05-streetbells', ratio: 1.0, fade: 6, level: 0.5 },
+    { at: '1:36', groups: 'all', stop: 'jammar132/C10-S03-hum', fade: 6 },
+    { at: '1:48', groups: 'all', play: 'jammar132/C10-S02-streetbeat_FAV', ratio: 1.0, level: 0.7 },
+    { at: '1:48', groups: 'all', play: 'jammar132/C10-S01-bellhit', loop: false, level: 0.6 },
+    { at: '2:12', groups: 'all', play: 'jammar132/C10-S01-bellhit', loop: false, level: 0.6 },
+    { at: '2:36', groups: 'all', stop: 'jammar132/C10-S02-streetbeat_FAV', fade: 1 },
+    { at: '2:36', groups: 'all', play: 'jammar132/C10-S01-bellhit', loop: false, level: 0.85 },
+    { at: '2:42', groups: 'all', stop: 'jammar132/C10-S05-streetbells', fade: 6 },
+  ],
+  end: '2:50'
+  },
+  
 ];
